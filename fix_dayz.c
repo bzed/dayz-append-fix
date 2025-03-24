@@ -7,10 +7,9 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
-#include <sys/stat.h> // For AT_FDCWD and related constants
+#include <sys/stat.h> // For AT_FDCWD
 
-
-// Function pointer types for the original functions.
+// Function pointer types
 typedef int (*original_open64_f)(const char *pathname, int flags, ...);
 typedef int (*original_open_f)(const char *pathname, int flags, ...);
 typedef int (*original_openat_f)(int dirfd, const char *pathname, int flags, ...);
@@ -21,8 +20,7 @@ typedef int (*original_dup_f)(int oldfd);
 typedef int (*original_dup2_f)(int oldfd, int newfd);
 typedef int (*original_dup3_f)(int oldfd, int newfd, int flags);
 
-
-// Keep track if the original functions have already been resolved
+// Static variables to hold the original function pointers
 static original_open64_f real_open64 = NULL;
 static original_open_f real_open = NULL;
 static original_openat_f real_openat = NULL;
@@ -33,12 +31,10 @@ static original_dup_f real_dup = NULL;
 static original_dup2_f real_dup2 = NULL;
 static original_dup3_f real_dup3 = NULL;
 
-
-
-// Helper function to modify flags (avoids code duplication)
-static inline int modify_flags(int flags) {
+// Helper function to modify flags and print debug info
+static inline int modify_flags(int flags, const char* function_name, const char* pathname) {
     if ((flags & O_APPEND) && !(flags & (O_WRONLY | O_RDWR))) {
-        fprintf(stderr, "Flags modified: 0x%x -> 0x%x\n", flags, flags | O_RDWR);
+        fprintf(stderr, "%s: Modifying flags for %s: 0x%x -> 0x%x\n", function_name, pathname, flags, flags | O_RDWR);
         return flags | O_RDWR;
     }
     return flags;
@@ -54,22 +50,19 @@ int open64(const char *pathname, int flags, ...) {
         }
     }
 
-    flags = modify_flags(flags);
+    int modified_flags = modify_flags(flags, "open64", pathname);
 
     va_list args;
     va_start(args, flags);
     int fd;
     if (flags & O_CREAT) {
         mode_t mode = va_arg(args, mode_t);
-        fd = real_open64(pathname, flags, mode);
+        fd = real_open64(pathname, modified_flags, mode);
     } else {
-        fd = real_open64(pathname, flags);
+        fd = real_open64(pathname, modified_flags);
     }
     va_end(args);
 
-    if (fd == -1) {
-        fprintf(stderr, "open64 failed: %s\n", strerror(errno));
-    }
     return fd;
 }
 
@@ -83,22 +76,18 @@ int open(const char *pathname, int flags, ...) {
         }
     }
 
-    flags = modify_flags(flags);
+    int modified_flags = modify_flags(flags, "open", pathname);
 
     va_list args;
     va_start(args, flags);
     int fd;
     if (flags & O_CREAT) {
         mode_t mode = va_arg(args, mode_t);
-        fd = real_open(pathname, flags, mode);
+        fd = real_open(pathname, modified_flags, mode);
     } else {
-        fd = real_open(pathname, flags);
+        fd = real_open(pathname, modified_flags);
     }
     va_end(args);
-
-    if (fd == -1) {
-        fprintf(stderr, "open failed: %s\n", strerror(errno));
-    }
     return fd;
 }
 
@@ -111,25 +100,23 @@ int openat(int dirfd, const char *pathname, int flags, ...) {
             exit(EXIT_FAILURE);
         }
     }
-    flags = modify_flags(flags);
+    // Pass pathname directly.  It's the caller's responsibility
+    // to interpret it correctly relative to dirfd.
+    int modified_flags = modify_flags(flags, "openat", pathname);
 
     va_list args;
     va_start(args, flags);
     int fd;
     if (flags & O_CREAT) {
         mode_t mode = va_arg(args, mode_t);
-        fd = real_openat(dirfd, pathname, flags, mode);
+        fd = real_openat(dirfd, pathname, modified_flags, mode);
     } else {
-        fd = real_openat(dirfd, pathname, flags);
+        fd = real_openat(dirfd, pathname, modified_flags);
     }
     va_end(args);
 
-    if (fd == -1) {
-        fprintf(stderr, "openat failed: %s\n", strerror(errno));
-    }
     return fd;
 }
-
 
 // --- openat64 ---
 int openat64(int dirfd, const char *pathname, int flags, ...) {
@@ -140,23 +127,20 @@ int openat64(int dirfd, const char *pathname, int flags, ...) {
             exit(EXIT_FAILURE);
         }
     }
-
-    flags = modify_flags(flags);
+    // Pass pathname directly.
+    int modified_flags = modify_flags(flags, "openat64", pathname);
 
     va_list args;
     va_start(args, flags);
     int fd;
     if (flags & O_CREAT) {
         mode_t mode = va_arg(args, mode_t);
-        fd = real_openat64(dirfd, pathname, flags, mode);
+        fd = real_openat64(dirfd, pathname, modified_flags, mode);
     } else {
-        fd = real_openat64(dirfd, pathname, flags);
+        fd = real_openat64(dirfd, pathname, modified_flags);
     }
     va_end(args);
 
-    if (fd == -1) {
-        fprintf(stderr, "openat64 failed: %s\n", strerror(errno));
-    }
     return fd;
 }
 
@@ -169,13 +153,7 @@ int creat(const char *pathname, mode_t mode) {
             exit(EXIT_FAILURE);
         }
     }
-
-    // creat is equivalent to open with O_CREAT | O_WRONLY | O_TRUNC
-    // Therefore, no need for modify_flags, as O_WRONLY is always set.
     int fd = real_creat(pathname, mode);
-    if (fd == -1) {
-        fprintf(stderr, "creat failed: %s\n", strerror(errno));
-    }
     return fd;
 }
 
@@ -188,15 +166,9 @@ int creat64(const char *pathname, mode_t mode) {
             exit(EXIT_FAILURE);
         }
     }
-    // creat64 is equivalent to open64 with O_CREAT | O_WRONLY | O_TRUNC
-    // Therefore, no need for modify_flags, as O_WRONLY is always set.
     int fd = real_creat64(pathname, mode);
-    if (fd == -1) {
-        fprintf(stderr, "creat64 failed: %s\n", strerror(errno));
-    }
     return fd;
 }
-
 
 // --- dup ---
 int dup(int oldfd) {
@@ -208,9 +180,6 @@ int dup(int oldfd) {
         }
     }
     int newfd = real_dup(oldfd);
-    if (newfd == -1) {
-        fprintf(stderr, "dup failed: %s\n", strerror(errno));
-    }
     return newfd;
 }
 
@@ -224,15 +193,12 @@ int dup2(int oldfd, int newfd) {
         }
     }
     int result = real_dup2(oldfd, newfd);
-    if (result == -1) {
-        fprintf(stderr, "dup2 failed: %s\n", strerror(errno));
-    }
     return result;
 }
 
 // --- dup3 ---
-int dup3(int oldfd, int newfd, int flags){
-      if (!real_dup3) {
+int dup3(int oldfd, int newfd, int flags) {
+    if (!real_dup3) {
         real_dup3 = (original_dup3_f)dlsym(RTLD_NEXT, "dup3");
         if (!real_dup3) {
             fprintf(stderr, "Error resolving dup3: %s\n", dlerror());
@@ -240,8 +206,5 @@ int dup3(int oldfd, int newfd, int flags){
         }
     }
     int result = real_dup3(oldfd, newfd, flags);
-    if (result == -1) {
-        fprintf(stderr, "dup3 failed: %s\n", strerror(errno));
-    }
     return result;
 }
