@@ -2,4 +2,4 @@
 all: fix_dayz.so
 
 %.so: %.c
-	gcc -shared -fPIC -o $@ $< -ldl
+	gcc -Wall -O3 -shared -fPIC -o $@ $< -ldl
