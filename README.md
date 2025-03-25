@@ -2,7 +2,7 @@
 
 1. run make
 2. cp `fix_dayz.so` to a place where the DayZ server binary can access it.
-3. `export LD_PRELOAD=/path/to/fix_dayz.so` before running the DayZ server (or put it in your Docker environment, whatever works.
+3. `export LD_PRELOAD=/path/to/fix_dayz.so` before running the DayZ server (or put it in your Docker environment, whatever works).
 
 # LICENSE
 Copyright (c) 2025 Bernd Zeimetz <bzed@debian.org>. All rights reserved.
