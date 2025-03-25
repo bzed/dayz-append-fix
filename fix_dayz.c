@@ -14,26 +14,22 @@ typedef int (*original_open64_f)(const char *pathname, int flags, ...);
 typedef int (*original_open_f)(const char *pathname, int flags, ...);
 typedef int (*original_openat_f)(int dirfd, const char *pathname, int flags, ...);
 typedef int (*original_openat64_f)(int dirfd, const char *pathname, int flags, ...);
-/*
 typedef int (*original_creat_f)(const char *pathname, mode_t mode);
 typedef int (*original_creat64_f)(const char *pathname, mode_t mode);
 typedef int (*original_dup_f)(int oldfd);
 typedef int (*original_dup2_f)(int oldfd, int newfd);
 typedef int (*original_dup3_f)(int oldfd, int newfd, int flags);
-*/
 
 // Static variables to hold the original function pointers
 static original_open64_f real_open64 = NULL;
 static original_open_f real_open = NULL;
 static original_openat_f real_openat = NULL;
 static original_openat64_f real_openat64 = NULL;
-/*
 static original_creat_f real_creat = NULL;
 static original_creat64_f real_creat64 = NULL;
 static original_dup_f real_dup = NULL;
 static original_dup2_f real_dup2 = NULL;
 static original_dup3_f real_dup3 = NULL;
-*/
 
 // Helper function to modify flags and print debug info
 static inline int modify_flags(int flags, const char* function_name, const char* pathname) {
@@ -148,7 +144,6 @@ int openat64(int dirfd, const char *pathname, int flags, ...) {
     return fd;
 }
 
-/*
 // --- creat ---
 int creat(const char *pathname, mode_t mode) {
     if (!real_creat) {
@@ -213,4 +208,3 @@ int dup3(int oldfd, int newfd, int flags) {
     int result = real_dup3(oldfd, newfd, flags);
     return result;
 }
-*/
